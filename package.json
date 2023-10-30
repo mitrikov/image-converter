@@ -1,0 +1,38 @@
+{
+  "name": "eda-images",
+  "version": "1.0.0",
+  "description": "Конвертирование изображений для загрузки на сайт",
+  "main": "index.ts",
+  "bin": "dist/index.js",
+  "scripts": {
+    "dev": "tsx watch --tsconfig ./tsconfig.json ./index.ts",
+    "start": "npm run build:live",
+    "build": "tsc -p .",
+    "build:live": "nodemon --watch 'src/**/*.ts' --exec 'ts-node' src/index.ts",
+    "convert": "node dist/index.js",
+    "bconvert": "tsc -p . && node dist/index.js",
+    "compile": "pkg package.json"
+  },
+  "pkg": {
+    "scripts": "node ./index.js",
+    "targets": [
+      "node18.5.0-win-x64"
+    ],
+    "outputPath": "bin",
+    "main": "dist/index.js",
+    "bin": "dist/index.js"
+  },
+  "author": "mitrikov",
+  "license": "ISC",
+  "devDependencies": {
+    "@types/node": "^20.8.9",
+    "ts-node": "^10.9.1",
+    "typescript": "^5.2.2"
+  },
+  "dependencies": {
+    "-": "^0.0.1",
+    "clipboardy": "^4.0.0",
+    "sharp": "^0.32.6",
+    "tsx": "^3.14.0"
+  }
+}
