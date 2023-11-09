@@ -19,6 +19,10 @@ const strtr = (string, dic) => {
     })), tokenizedStr = tokens.reduce((carry, entry) => carry.replace(new RegExp(entry.key, "g"), entry.token), str);
     return tokens.reduce((carry, entry) => carry.replace(new RegExp(entry.token, "g"), entry.val), tokenizedStr);
 };
+const additionalCases = {
+    ' - ': '-',
+    ' ': '-'
+};
 const table = {
     'А': 'A',
     'Б': 'B',
@@ -86,8 +90,8 @@ const table = {
     'э': 'e',
     'ю': 'yu',
     'я': 'ya',
-    ' ': '-'
 };
+Object.assign(table, additionalCases);
 function cyr2lat(str) {
     return strtr(str, table);
 }

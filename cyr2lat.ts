@@ -26,6 +26,11 @@ const strtr = (string: string, dic : {[key: string]: string}) => {
         carry.replace(new RegExp(entry.token, "g"), entry.val), tokenizedStr);
 };
 
+const additionalCases : { [key: string]: string } = {
+    ' - ' : '-',
+    ' ': '-'
+}
+
 const table : { [key: string]: string } = {
     'А': 'A',
     'Б': 'B',
@@ -93,9 +98,10 @@ const table : { [key: string]: string } = {
     'э': 'e',
     'ю': 'yu',
     'я': 'ya',
-    ' ': '-'
 }
+
+Object.assign(table, additionalCases)
 
 export function cyr2lat(str : string) : string {
     return strtr(str, table)
-} 
+}

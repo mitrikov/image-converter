@@ -4,12 +4,15 @@ import { cyr2lat } from './cyr2lat'
 import { humanFileSize } from './humanFileSize'
 import waitForAnyKey from './waitForKey'
 import sharp from 'sharp'
+import { glob } from 'glob'
 // const clipboardy =  require('clipboardy')
 
-const prefix = "san-"
+// TODO: Если тире обрамлено пробелами, то заменять на просто тире
+
+const prefix = ""
 const sourceFolder = "./images/source"
 const outputFolder = "./images/target"
-const convertToWebp = true
+const isConvertToWebp = true
 const maxWidthOrHeight = 800
 
 class ConvertionLogger {
@@ -26,7 +29,7 @@ class ConvertionLogger {
     logConvertionString(sourceFile, sourceFileName, convertedFile, outputFileName) {
         const sourceFileSize = humanFileSize(sourceFile.byteLength)
         const outputFileSize = humanFileSize(convertedFile.byteLength)
-        const outputCompressRatio = 100 - convertedFile.byteLength / sourceFile.byteLength
+        const outputCompressRatio = 100 - (convertedFile.byteLength / sourceFile.byteLength) * 100
 
         console.log(`\x1b[34m${sourceFileName} - ${sourceFileSize}\x1b[0m -> \x1b[35m${outputFileName} - ${outputFileSize}\x1b[0m - (${outputCompressRatio.toFixed(2)}%)`)
         this.totalCompressRatio += outputCompressRatio
@@ -44,12 +47,69 @@ class ConvertionLogger {
     }
 }
 
+function writeFileSyncRecursive(filename, content) {
+    // -- normalize path separator to '/' instead of path.sep, 
+    // -- as / works in node for Windows as well, and mixed \\ and / can appear in the path
+    let filepath = filename.replace(/\\/g,'/');  
+  
+    // -- preparation to allow absolute paths as well
+    let root = '';
+    if (filepath[0] === '/') { 
+      root = '/'; 
+      filepath = filepath.slice(1);
+    } 
+    else if (filepath[1] === ':') { 
+      root = filepath.slice(0,3);   // c:\
+      filepath = filepath.slice(3); 
+    }
+  
+    // -- create folders all the way down
+    const folders = filepath.split('/').slice(0, -1);  // remove last item, file
+    folders.reduce(
+      (acc, folder) => {
+        const folderPath = acc + folder + '/';
+        if (!fs.existsSync(folderPath)) {
+          fs.mkdirSync(folderPath);
+        }
+        return folderPath
+      },
+      root // first 'acc', important
+    ); 
+    
+    // -- write file
+    fs.writeFileSync(root + filepath, content);
+}
+
+const readDirRecursive = <T extends {path: string, name: string}[]>(files : Array<any>)  : T => {
+    const result = [] as T
+    
+    for(let i = 1; i < files.length; i++) {
+        const path = files[i]
+
+        if(path.isFile()) {
+            let item = path
+            let parents = []
+            while(item) {
+                item = item.parent
+                if(item.name === "images" || item.name === "source") break; 
+                parents.push(item.name)
+            }
+            result.push({
+                path : parents.length ? parents.reverse().join("/") + "/" : '',
+                name: path.name
+            })
+        }
+    }
+    return result
+}
+
 const convertImage = async (fileName : string, outputFileName : string, convertToWebp? : boolean) => {
-    const file = fs.readFileSync(`${sourceFolder}/${fileName}`)
+    const file = fs.readFileSync(fileName)
     outputFileName = outputFileName.replace(/\.(\w+)/, ".jpg")
     const result = await sharp(file)
         .resize(maxWidthOrHeight, maxWidthOrHeight, {
-            fit: 'inside'
+            fit: 'inside',
+            withoutEnlargement: true
         })
         .jpeg({
             quality: 80
@@ -62,18 +122,19 @@ const convertImage = async (fileName : string, outputFileName : string, convertT
     if(convertToWebp) {
         outputFileNameWebp = outputFileName.replace(/\.(\w+)/, ".webp")
         resultWebp = await sharp(file)
-        .resize(800, 800, {
-            fit: 'inside'
+        .resize(maxWidthOrHeight, maxWidthOrHeight, {
+            fit: 'inside',
+            withoutEnlargement: true
         })
         .webp({
             quality: 80
         })
         .toBuffer()
 
-        fs.writeFileSync(`${outputFolder}/${outputFileNameWebp}`, resultWebp)
+        writeFileSyncRecursive(outputFileNameWebp, resultWebp)
     }
 
-    fs.writeFileSync(`${outputFolder}/${outputFileName}`, result)
+    writeFileSyncRecursive(outputFileName, result)
 
     return {
         sourceFile : file,
@@ -86,27 +147,35 @@ const convertImage = async (fileName : string, outputFileName : string, convertT
 
 const main = async () => {
     const logger = new ConvertionLogger()
-    const images = fs.readdirSync(sourceFolder)
+    const images = await glob(sourceFolder + "/**", {withFileTypes: true })
+
+    const result = readDirRecursive(images)
     
-    for(let sourceFileName of images) {
-        const transliteratedName = prefix + cyr2lat(sourceFileName.toLowerCase())
+    fs.rmSync(outputFolder, { recursive: true, force: true })
+
+    for(let file of result){
+        const transliteratedName = prefix + cyr2lat(file.name.toLowerCase())
+        const sourcePath = sourceFolder + "/" + file.path + file.name
+        const outputPath = outputFolder + "/" + file.path + transliteratedName
         const {
             sourceFile, 
             outputFile, 
             outputFileName,
             outputFileWebp, 
             outputFileNameWebp
-        } = await convertImage(sourceFileName, transliteratedName, convertToWebp)
+        } = await convertImage(sourcePath, outputPath, isConvertToWebp)
 
-        logger.logConvertionString(sourceFile, sourceFileName, outputFile, outputFileName)
-        if(convertToWebp) logger.logConvertionString(sourceFile, sourceFileName, outputFileWebp, outputFileNameWebp)
+        if(isConvertToWebp) logger.logConvertionString(sourceFile, sourcePath, outputFileWebp, outputFileNameWebp)
+        logger.logConvertionString(sourceFile, sourcePath, outputFile, outputFileName)
     }
 
+   
+    // console.log(files)
     logger.logConvertionResult()
     await logger.copyToClipboard()
 
     console.log('Нажмите любую клавишу для выхода...')
-    await waitForAnyKey(10)
+    // await waitForAnyKey(10)
 }
 
 main()
