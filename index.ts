@@ -9,11 +9,12 @@ import { glob } from 'glob'
 
 // TODO: Если тире обрамлено пробелами, то заменять на просто тире
 
-const prefix = ""
+const prefix = "pelm-"
 const sourceFolder = "./images/source"
 const outputFolder = "./images/target"
-const isConvertToWebp = true
+const isConvertToWebp = false
 const maxWidthOrHeight = 800
+const quality = 90
 
 class ConvertionLogger {
     totalCompressRatio : number
@@ -33,6 +34,7 @@ class ConvertionLogger {
 
         console.log(`\x1b[34m${sourceFileName} - ${sourceFileSize}\x1b[0m -> \x1b[35m${outputFileName} - ${outputFileSize}\x1b[0m - (${outputCompressRatio.toFixed(2)}%)`)
         this.totalCompressRatio += outputCompressRatio
+        this.outputFileNames.push(outputFileName.replace(/^.*[\\\/]/, ''))
         this.filesCount++
     }
 
@@ -112,7 +114,7 @@ const convertImage = async (fileName : string, outputFileName : string, convertT
             withoutEnlargement: true
         })
         .jpeg({
-            quality: 80
+            quality: quality
         })
         .toBuffer()
     
@@ -127,7 +129,7 @@ const convertImage = async (fileName : string, outputFileName : string, convertT
             withoutEnlargement: true
         })
         .webp({
-            quality: 80
+            quality: quality
         })
         .toBuffer()
 
@@ -169,12 +171,10 @@ const main = async () => {
         logger.logConvertionString(sourceFile, sourcePath, outputFile, outputFileName)
     }
 
-   
-    // console.log(files)
     logger.logConvertionResult()
     await logger.copyToClipboard()
 
-    console.log('Нажмите любую клавишу для выхода...')
+    // console.log('Нажмите любую клавишу для выхода...')
     // await waitForAnyKey(10)
 }
 
